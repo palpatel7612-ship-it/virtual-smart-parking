@@ -1,30 +1,22 @@
 
 from flask import Flask, render_template, redirect, url_for, flash, request
-
 import sqlite3
 import random
-import math
-
 from datetime import datetime
-
 
 # Flask application
 app = Flask(__name__)
 
 app.secret_key = "smart-parking-secret"
 
-
 # Configuration
 DATABASE = "parking.db"
-PARKING_RATE = 20
 
 
 # Database connection
 def get_db_connection():
-
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
-
     return conn
 
 
@@ -77,7 +69,6 @@ def initialize_database():
 
 # Current timestamp
 def current_time():
-
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -93,33 +84,6 @@ def record_activity(conn, slot_id, action):
         (slot_id, action, event_time)
         VALUES (?, ?, ?)
     """, (slot_id, action, event_time))
-
-
-# Calculate parking fee
-def calculate_parking_fee(entry_time, exit_datetime):
-
-    entry_datetime = datetime.strptime(
-        entry_time,
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    duration_seconds = (
-        exit_datetime - entry_datetime
-    ).total_seconds()
-
-    duration_minutes = max(
-        1,
-        math.ceil(duration_seconds / 60)
-    )
-
-    billable_hours = max(
-        1,
-        math.ceil(duration_seconds / 3600)
-    )
-
-    fee = billable_hours * PARKING_RATE
-
-    return duration_minutes, fee
 
 
 # Register a vehicle
@@ -159,9 +123,7 @@ def register_vehicle():
 
     if existing_vehicle:
 
-        flash(
-            "This vehicle is already registered as parked."
-        )
+        flash("This vehicle is already registered as parked.")
 
         conn.close()
 
@@ -254,31 +216,18 @@ def vehicle_exit(vehicle_id):
 
         return redirect(url_for("home"))
 
-    exit_datetime = datetime.now()
-
-    duration_minutes, fee = calculate_parking_fee(
-        vehicle["entry_time"],
-        exit_datetime
-    )
-
-    exit_time = exit_datetime.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    exit_time = current_time()
 
     slot_id = vehicle["slot_id"]
 
-    # Update vehicle record
+    # Update vehicle record without fee calculation
     conn.execute("""
         UPDATE vehicles
         SET exit_time = ?,
-            duration_minutes = ?,
-            fee = ?,
             status = 'Completed'
         WHERE id = ?
     """, (
         exit_time,
-        duration_minutes,
-        fee,
         vehicle_id
     ))
 
@@ -293,7 +242,7 @@ def vehicle_exit(vehicle_id):
     record_activity(
         conn,
         slot_id,
-        f"Vehicle Exit - {vehicle['vehicle_number']} - Fee: ₹{fee}"
+        f"Vehicle Exit - {vehicle['vehicle_number']}"
     )
 
     conn.commit()
@@ -301,8 +250,7 @@ def vehicle_exit(vehicle_id):
 
     flash(
         f"Vehicle {vehicle['vehicle_number']} exited successfully. "
-        f"Duration: {duration_minutes} minutes. "
-        f"Parking Fee: ₹{fee}"
+        f"Slot {slot_id} is now available."
     )
 
     return redirect(url_for("home"))
@@ -350,13 +298,6 @@ def home():
         LIMIT 10
     """).fetchall()
 
-    # Total revenue
-    total_revenue = conn.execute("""
-        SELECT COALESCE(SUM(fee), 0)
-        FROM vehicles
-        WHERE status = 'Completed'
-    """).fetchone()[0]
-
     conn.close()
 
     return render_template(
@@ -367,8 +308,7 @@ def home():
         occupied_slots=occupied_slots,
         active_vehicles=active_vehicles,
         vehicle_history=vehicle_history,
-        activities=activities,
-        total_revenue=total_revenue
+        activities=activities
     )
 
 
@@ -417,7 +357,7 @@ def toggle_slot(slot_id):
 
         else:
 
-            # Release an old occupied slot that has no vehicle record
+            # Release an old occupied slot without a vehicle record
             conn.execute("""
                 UPDATE parking_slots
                 SET status = 'Available'
@@ -432,9 +372,7 @@ def toggle_slot(slot_id):
 
             conn.commit()
 
-            flash(
-                f"Slot {slot_id} marked as available."
-            )
+            flash(f"Slot {slot_id} marked as available.")
 
     conn.close()
 
@@ -459,10 +397,7 @@ def simulate_sensor():
         ORDER BY id
     """).fetchall()
 
-    # IMPORTANT:
-    # If all slots are full, do not randomly simulate an exit.
-    # Show a clear parking-full message instead.
-
+    # If all slots are full, show parking-full message
     if not available_slots:
 
         flash(
@@ -546,41 +481,27 @@ def simulate_sensor():
 
         if vehicle:
 
-            exit_datetime = datetime.now()
-
-            duration_minutes, fee = calculate_parking_fee(
-                vehicle["entry_time"],
-                exit_datetime
-            )
-
-            exit_time = exit_datetime.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            exit_time = current_time()
 
             conn.execute("""
                 UPDATE vehicles
                 SET exit_time = ?,
-                    duration_minutes = ?,
-                    fee = ?,
                     status = 'Completed'
                 WHERE id = ?
             """, (
                 exit_time,
-                duration_minutes,
-                fee,
                 vehicle["id"]
             ))
 
             record_activity(
                 conn,
                 slot_id,
-                f"Virtual Exit - {vehicle['vehicle_number']} - Fee: ₹{fee}"
+                f"Virtual Exit - {vehicle['vehicle_number']}"
             )
 
             flash(
                 f"Virtual vehicle {vehicle['vehicle_number']} "
-                f"exited Slot {slot_id}. "
-                f"Parking Fee: ₹{fee}"
+                f"exited Slot {slot_id}."
             )
 
         else:
