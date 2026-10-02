@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Smart Parking Management System</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header>
+    <h1>Smart Parking Management System</h1>
+    <p>Virtual Parking Monitoring Dashboard</p>
+</header>
+
+<div class="container">
+
+    <h2>Parking Overview</h2>
+
+    <div class="stats">
+
+        <div class="stat-card">
+            <h3>Total Slots</h3>
+            <p>{{ total_slots }}</p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Available Slots</h3>
+            <p>{{ available_slots }}</p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Occupied Slots</h3>
+            <p>{{ occupied_slots }}</p>
+        </div>
+
+    </div>
+
+    <div class="sensor-panel">
+
+        <h2>Virtual Sensor</h2>
+
+        <p>
+            Simulate vehicle movement and automatically
+            update parking slot information.
+        </p>
+
+        <form action="/simulate" method="POST">
+
+            <button class="simulate-btn" type="submit">
+                Run Virtual Sensor
+            </button>
+
+        </form>
+
+        {% with messages = get_flashed_messages() %}
+
+            {% if messages %}
+
+                {% for message in messages %}
+
+                    <div class="sensor-message">
+                        {{ message }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+    </div>
+
+    <h2>Parking Slots</h2>
+
+    <div class="parking-grid">
+
+        {% for slot in parking_slots %}
+
+        <div class="slot {{ slot['status']|lower }}">
+
+            <h3>Slot {{ slot['id'] }}</h3>
+
+            <p>{{ slot['status'] }}</p>
+
+            <form action="/toggle/{{ slot['id'] }}" method="POST">
+
+                <button type="submit">
+
+                    {% if slot['status'] == "Available" %}
+                        Simulate Vehicle Entry
+                    {% else %}
+                        Simulate Vehicle Exit
+                    {% endif %}
+
+                </button>
+
+            </form>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    <div class="history-section">
+
+        <h2>Parking Activity History</h2>
+
+        <p class="history-description">
+            Recent vehicle entry and exit records.
+        </p>
+
+        <div class="table-container">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Slot ID</th>
+                        <th>Activity</th>
+                        <th>Date and Time</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for activity in activities %}
+
+                    <tr>
+
+                        <td>Slot {{ activity['slot_id'] }}</td>
+
+                        <td>
+                            <span class="activity-badge
+                                {{ 'entry' if activity['action'] == 'Vehicle Entry' else 'exit' }}">
+                                {{ activity['action'] }}
+                            </span>
+                        </td>
+
+                        <td>{{ activity['event_time'] }}</td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="3">
+                            No parking activities recorded yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>
