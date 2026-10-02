@@ -10,6 +10,81 @@
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        .section {
+            margin-top: 35px;
+        }
+
+        .vehicle-form {
+            background: white;
+            padding: 22px;
+            border-radius: 12px;
+            max-width: 550px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+
+        .vehicle-form label {
+            display: block;
+            margin: 12px 0 6px;
+            font-weight: 600;
+        }
+
+        .vehicle-form input,
+        .vehicle-form select {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        .vehicle-form button,
+        .action-btn {
+            margin-top: 15px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .exit-btn {
+            background: #dc2626;
+        }
+
+        .sensor-btn {
+            background: #7c3aed;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .message {
+            padding: 12px;
+            margin: 12px 0;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 6px;
+        }
+
+        .empty-message {
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+        }
+
+        .revenue-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+        }
+    </style>
 </head>
 
 <body>
@@ -21,6 +96,18 @@
 
 <div class="container">
 
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Parking Overview -->
     <h2>Parking Overview</h2>
 
     <div class="stats">
@@ -42,7 +129,16 @@
 
     </div>
 
-    <div class="sensor-panel">
+    <!-- Revenue -->
+    <div class="section">
+        <div class="revenue-card">
+            <h3>Total Parking Revenue</h3>
+            <h2>₹{{ total_revenue }}</h2>
+        </div>
+    </div>
+
+    <!-- Virtual Sensor -->
+    <div class="sensor-panel section">
 
         <h2>Virtual Sensor</h2>
 
@@ -51,65 +147,210 @@
             update parking slot information.
         </p>
 
-        <form action="/simulate" method="POST">
-
-            <button class="simulate-btn" type="submit">
+        <form action="{{ url_for('simulate_sensor') }}" method="POST">
+            <button class="simulate-btn sensor-btn" type="submit">
                 Run Virtual Sensor
             </button>
-
         </form>
-
-        {% with messages = get_flashed_messages() %}
-
-            {% if messages %}
-
-                {% for message in messages %}
-
-                    <div class="sensor-message">
-                        {{ message }}
-                    </div>
-
-                {% endfor %}
-
-            {% endif %}
-
-        {% endwith %}
 
     </div>
 
-    <h2>Parking Slots</h2>
+    <!-- Parking Slots -->
+    <div class="section">
 
-    <div class="parking-grid">
+        <h2>Parking Slots</h2>
 
-        {% for slot in parking_slots %}
+        <div class="parking-grid">
 
-        <div class="slot {{ slot['status']|lower }}">
+            {% for slot in parking_slots %}
 
-            <h3>Slot {{ slot['id'] }}</h3>
+                <div class="slot {{ slot['status']|lower }}">
 
-            <p>{{ slot['status'] }}</p>
+                    <h3>Slot {{ slot['id'] }}</h3>
 
-            <form action="/toggle/{{ slot['id'] }}" method="POST">
-
-                <button type="submit">
+                    <p>{{ slot['status'] }}</p>
 
                     {% if slot['status'] == "Available" %}
-                        Simulate Vehicle Entry
+                        <p>Ready for parking</p>
                     {% else %}
-                        Simulate Vehicle Exit
+                        <p>Currently occupied</p>
                     {% endif %}
 
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    <!-- Vehicle Registration -->
+    <div class="section">
+
+        <h2>Vehicle Management</h2>
+
+        <div class="vehicle-form">
+
+            <h3>Register Vehicle</h3>
+
+            <form action="{{ url_for('register_vehicle') }}"
+                  method="POST">
+
+                <label for="vehicle_number">
+                    Vehicle Registration Number
+                </label>
+
+                <input
+                    type="text"
+                    id="vehicle_number"
+                    name="vehicle_number"
+                    placeholder="Example: GJ01AB1234"
+                    required
+                >
+
+                <label for="vehicle_type">
+                    Vehicle Type
+                </label>
+
+                <select id="vehicle_type"
+                        name="vehicle_type"
+                        required>
+
+                    <option value="">Select Vehicle Type</option>
+                    <option value="Car">Car</option>
+                    <option value="Bike">Bike</option>
+                    <option value="EV">Electric Vehicle (EV)</option>
+
+                </select>
+
+                <button type="submit">
+                    Register and Park Vehicle
                 </button>
 
             </form>
 
         </div>
 
-        {% endfor %}
+    </div>
+
+    <!-- Active Vehicles -->
+    <div class="section">
+
+        <h2>Currently Parked Vehicles</h2>
+
+        {% if active_vehicles %}
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Vehicle Number</th>
+                            <th>Vehicle Type</th>
+                            <th>Slot</th>
+                            <th>Entry Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for vehicle in active_vehicles %}
+
+                            <tr>
+                                <td>{{ vehicle['vehicle_number'] }}</td>
+                                <td>{{ vehicle['vehicle_type'] }}</td>
+                                <td>{{ vehicle['slot_id'] }}</td>
+                                <td>{{ vehicle['entry_time'] }}</td>
+
+                                <td>
+                                    <form
+                                        action="{{ url_for('vehicle_exit', vehicle_id=vehicle['id']) }}"
+                                        method="POST">
+
+                                        <button type="submit"
+                                                class="action-btn exit-btn">
+                                            Vehicle Exit
+                                        </button>
+
+                                    </form>
+                                </td>
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-message">
+                No vehicles are currently parked.
+            </div>
+
+        {% endif %}
 
     </div>
 
-    <div class="history-section">
+    <!-- Vehicle History -->
+    <div class="section">
+
+        <h2>Vehicle History and Parking Fees</h2>
+
+        {% if vehicle_history %}
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Vehicle Number</th>
+                            <th>Vehicle Type</th>
+                            <th>Slot</th>
+                            <th>Entry Time</th>
+                            <th>Exit Time</th>
+                            <th>Parking Fee</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for vehicle in vehicle_history %}
+
+                            <tr>
+                                <td>{{ vehicle['vehicle_number'] }}</td>
+                                <td>{{ vehicle['vehicle_type'] }}</td>
+                                <td>{{ vehicle['slot_id'] }}</td>
+                                <td>{{ vehicle['entry_time'] }}</td>
+                                <td>{{ vehicle['exit_time'] }}</td>
+                                <td>₹{{ vehicle['fee'] }}</td>
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-message">
+                No completed parking records yet.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+    <!-- Activity History -->
+    <div class="history-section section">
 
         <h2>Parking Activity History</h2>
 
@@ -133,28 +374,26 @@
 
                     {% for activity in activities %}
 
-                    <tr>
+                        <tr>
+                            <td>Slot {{ activity['slot_id'] }}</td>
 
-                        <td>Slot {{ activity['slot_id'] }}</td>
+                            <td>
+                                <span class="activity-badge
+                                    {{ 'entry' if activity['action'] == 'Vehicle Entry' else 'exit' }}">
+                                    {{ activity['action'] }}
+                                </span>
+                            </td>
 
-                        <td>
-                            <span class="activity-badge
-                                {{ 'entry' if activity['action'] == 'Vehicle Entry' else 'exit' }}">
-                                {{ activity['action'] }}
-                            </span>
-                        </td>
-
-                        <td>{{ activity['event_time'] }}</td>
-
-                    </tr>
+                            <td>{{ activity['event_time'] }}</td>
+                        </tr>
 
                     {% else %}
 
-                    <tr>
-                        <td colspan="3">
-                            No parking activities recorded yet.
-                        </td>
-                    </tr>
+                        <tr>
+                            <td colspan="3">
+                                No parking activities recorded yet.
+                            </td>
+                        </tr>
 
                     {% endfor %}
 
